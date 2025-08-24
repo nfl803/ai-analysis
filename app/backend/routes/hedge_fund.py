@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, Request, Depends
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 import asyncio
+import os, json, datetime
 
 from app.backend.database import get_db
 from app.backend.models.schemas import ErrorResponse, HedgeFundRequest, BacktestRequest, BacktestDayResult, BacktestPerformanceMetrics
@@ -134,6 +135,23 @@ async def run(request_data: HedgeFundRequest, request: Request, db: Session = De
                         "current_prices": result.get("data", {}).get("current_prices", {}),
                     }
                 )
+                
+                # AUTOSAVE (inserted)
+                payload_to_save = {
+                    "tickers": request_data.tickers,
+                    **final_data.data,
+                }
+                try:
+                    os.makedirs("outputs", exist_ok=True)
+                    ts = datetime.datetime.now().strftime("%Y-%m-%d_%H%M%S")
+                    tickers_part = "_".join(request_data.tickers) if request_data.tickers else "run"
+                    out_path = f"outputs/{tickers_part}-{ts}.json"
+                    with open(out_path, "w", encoding="utf-8") as f:
+                        json.dump(payload_to_save, f, ensure_ascii=False, indent=2)
+                    print(f"[autosave] saved -> {out_path}")
+                except Exception as e:
+                    print(f"[autosave] failed: {e}")
+                
                 yield final_data.to_sse()
 
             except asyncio.CancelledError:
@@ -310,6 +328,23 @@ async def backtest(request_data: BacktestRequest, request: Request, db: Session 
                         "total_days": len(result["results"]),
                     }
                 )
+                
+                # AUTOSAVE (inserted)
+                payload_to_save = {
+                    "tickers": request_data.tickers,
+                    **final_data.data,
+                }
+                try:
+                    os.makedirs("outputs", exist_ok=True)
+                    ts = datetime.datetime.now().strftime("%Y-%m-%d_%H%M%S")
+                    tickers_part = "_".join(request_data.tickers) if request_data.tickers else "run"
+                    out_path = f"outputs/{tickers_part}-{ts}.json"
+                    with open(out_path, "w", encoding="utf-8") as f:
+                        json.dump(payload_to_save, f, ensure_ascii=False, indent=2)
+                    print(f"[autosave] saved -> {out_path}")
+                except Exception as e:
+                    print(f"[autosave] failed: {e}")
+                
                 yield final_data.to_sse()
 
             except asyncio.CancelledError:
